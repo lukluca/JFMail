@@ -42,7 +42,6 @@ extern NSString *smtpPartContentTransferEncodingKey;
 #define smtpErrorConnectionFailed -3
 #define smtpErrorConnectionInterrupted -4
 #define smtpErrorUnsupportedLogin -2
-#define smtpErrorTLSFail -1
 #define smtpErrorNonExistentDomain 1
 #define smtpErrorInvalidUserPass 535
 #define smtpErrorInvalidMessage 550
