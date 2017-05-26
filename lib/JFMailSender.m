@@ -44,24 +44,24 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
 -(instancetype)init
 {
     static NSArray *defaultPorts = nil;
-    
+
     if (!defaultPorts)
     {
         defaultPorts = @[@25, @465, @587];
     }
-    
+
     if ((self = [super init]))
     {
         // Setup the default ports
         self.relayPorts = defaultPorts;
-        
+
         // setup a default timeout (8 seconds)
         self.connectTimeout = 8.0;
-        
+
         // by default, validate the SSL chain
         self.validateSSLChain = YES;
     }
-    
+
     return self;
 }
 
@@ -83,7 +83,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
     self.fromName = nil;
     [self.connectTimer invalidate];
     self.connectTimer = nil;
-    
+
     [self stopWatchdog];
 }
 
@@ -134,19 +134,19 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
     {
         [self.inputStream close];
         [self.inputStream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                               forMode:NSDefaultRunLoopMode];
+                                    forMode:NSDefaultRunLoopMode];
         self.inputStream = nil;
-        
+
         [self.outputStream close];
         [self.outputStream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                                forMode:NSDefaultRunLoopMode];
+                                     forMode:NSDefaultRunLoopMode];
         self.outputStream = nil;
-        
+
         // Try the next port - if we don't have another one to try, this will fail
         self.sendState = smtpIdle;
         [self sendMail];
     }
-    
+
     self.connectTimer = nil;
 }
 
@@ -156,7 +156,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
 - (void)connectionWatchdog:(NSTimer *)aTimer
 {
     [self cleanUpStreams];
-    
+
     // No hard error if we're wating on a reply
     if (self.sendState != smtpWaitingQuitReply)
     {
@@ -175,7 +175,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
 - (BOOL)checkRelayHostWithError:(NSError **)error {
     CFHostRef host = CFHostCreateWithName(NULL, (__bridge CFStringRef)self.relayHost);
     CFStreamError streamError;
-    
+
     if (!CFHostStartInfoResolution(host, kCFHostAddresses, &streamError)) {
         NSString *errorDomainName;
         switch (streamError.domain) {
@@ -210,7 +210,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
         CFRelease(host);
         return NO;
     }
-    
+
     CFRelease(host);
     return YES;
 }
@@ -226,40 +226,40 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
     NSAssert(self.fromEmail, @"send requires fromEmail");
     NSAssert(self.toEmail, @"send requires toEmail");
     NSAssert(self.parts, @"send requires parts");
-    
+
     NSError *error = nil;
     if (![self checkRelayHostWithError:&error]){
         [self.delegate mailFailed:self error:error];
         return NO;
     }
-    
+
     if (![self.relayPorts count]){
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.delegate mailFailed:self
-                              error:[NSError errorWithDomain:@"SKPSMTPMessageError"
-                                                        code:smtpErrorConnectionFailed
-                                                    userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Unable to connect to the server.", @"server connection fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Try sending your message again later.", @"server generic error recovery")}]];
-            
+                                error:[NSError errorWithDomain:@"SKPSMTPMessageError"
+                                                          code:smtpErrorConnectionFailed
+                                                      userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Unable to connect to the server.", @"server connection fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Try sending your message again later.", @"server generic error recovery")}]];
+
         });
-        
+
         return NO;
     }
-    
+
     // Grab the next relay port
     short relayPort = [self.relayPorts[0] shortValue];
-    
+
     // Pop this off the head of the queue.
     self.relayPorts = ([self.relayPorts count] > 1) ? [self.relayPorts subarrayWithRange:NSMakeRange(1, [self.relayPorts count] - 1)] : [NSArray array];
-    
+
     NSLog(@"C: Attempting to connect to server at: %@:%d", self.relayHost, relayPort);
-    
+
     self.connectTimer = [NSTimer timerWithTimeInterval:self.connectTimeout target:self selector:@selector(connectionConnectedCheck:) userInfo:nil repeats:NO];
-    
+
     [[NSRunLoop currentRunLoop] addTimer:self.connectTimer forMode:NSDefaultRunLoopMode];
-    
+
     //获取inputsteam和outputsteam
     [self getStreamsToHostNamed:self.relayHost port:relayPort];
-    
+
     if ((self.inputStream != nil) && (self.outputStream != nil)){
         self.sendState = smtpConnecting;
         self.isSecure = NO;
@@ -271,25 +271,25 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
         [self.outputStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
         [self.inputStream open];
         [self.outputStream open];
-        
+
         self.inputString = [NSMutableString string];
         //
         if(![[NSRunLoop currentRunLoop] isEqual:[NSRunLoop mainRunLoop]]){
             [[NSRunLoop currentRunLoop] run];
         }
-        
+
         return YES;
     }
     else
     {
         [self.connectTimer invalidate];
         self.connectTimer = nil;
-        
+
         [self.delegate mailFailed:self
-                          error:[NSError errorWithDomain:@"SKPSMTPMessageError"
-                                                    code:smtpErrorConnectionFailed
-                                                userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Unable to connect to the server.", @"server connection fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Try sending your message again later.", @"server generic error recovery")}]];
-        
+                            error:[NSError errorWithDomain:@"SKPSMTPMessageError"
+                                                      code:smtpErrorConnectionFailed
+                                                  userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Unable to connect to the server.", @"server connection fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Try sending your message again later.", @"server generic error recovery")}]];
+
         return NO;
     }
 }
@@ -306,7 +306,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
             {
                 NSString *tmpStr = [[NSString alloc] initWithBytes:buf length: (NSUInteger) len encoding:NSUTF8StringEncoding];
                 [self.inputString appendString:tmpStr];
-                
+
                 [self parseBuffer];
             }
             break;
@@ -318,21 +318,21 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                               forMode:NSDefaultRunLoopMode];
 
             stream = nil;
-            
+
             if (self.sendState != smtpMessageSent)
             {
                 [self.delegate mailFailed:self
-                                  error:[NSError errorWithDomain:@"SKPSMTPMessageError"
-                                                            code:smtpErrorConnectionInterrupted
-                                                        userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"The connection to the server was interrupted.", @"server connection interrupted error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Try sending your message again later.", @"server generic error recovery")}]];
-                
+                                    error:[NSError errorWithDomain:@"SKPSMTPMessageError"
+                                                              code:smtpErrorConnectionInterrupted
+                                                          userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"The connection to the server was interrupted.", @"server connection interrupted error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Try sending your message again later.", @"server generic error recovery")}]];
+
             }
-            
+
             break;
         }
         default:
             break;
-            
+
     }
 }
 
@@ -340,27 +340,27 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
     // Pull out the next line
     NSScanner *scanner = [NSScanner scannerWithString:self.inputString];
     NSString *tmpLine = nil;
-    
+
     NSError *error = nil;
     BOOL encounteredError = NO;
     BOOL messageSent = NO;
-    
+
     while (![scanner isAtEnd]){
-        
+
         BOOL foundLine = [scanner scanUpToCharactersFromSet:[NSCharacterSet newlineCharacterSet]
                                                  intoString:&tmpLine];
-        
+
         if(foundLine){
             [self stopWatchdog];
-            
+
             NSLog(@"S: %@", tmpLine);
-            
+
             switch (self.sendState){
                 case smtpConnecting:{
                     if ([tmpLine hasPrefix:@"220 "]){
-                        
+
                         self.sendState = smtpWaitingEHLOReply;
-                        
+
                         NSString *ehlo = [NSString stringWithFormat:@"EHLO %@\r\n", @"localhost"];
                         NSLog(@"C: %@", ehlo);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[ehlo UTF8String], (CFIndex) [ehlo lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -382,7 +382,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                         if (testRange.location != NSNotFound){
                             self.serverAuthPLAIN = YES;
                         }
-                        
+
                         testRange = [tmpLine rangeOfString:@"LOGIN"];
                         if (testRange.location != NSNotFound){
                             self.serverAuthLOGIN = YES;
@@ -394,7 +394,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                     else if ([tmpLine hasPrefix:@"250-STARTTLS"] && !self.isSecure && self.wantsSecure){
                         // if we're not already using TLS, start it up
                         self.sendState = smtpWaitingTLSReply;
-                        
+
                         NSString *startTLS = @"STARTTLS\r\n";
                         NSLog(@"C: %@", startTLS);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[startTLS UTF8String], (CFIndex) [startTLS lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -439,15 +439,15 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                                 error = [NSError errorWithDomain:@"SKPSMTPMessageError"
                                                             code:smtpErrorUnsupportedLogin
                                                         userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"Unsupported login mechanism.", @"server unsupported login fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString(@"Your server's security setup is not supported, please contact your system administrator or use a supported email account like MobileMe.", @"server security fail error recovery")}];
-                                
+
                                 encounteredError = YES;
                             }
-                            
+
                         }
                         else{
                             // Start up send from
                             self.sendState = smtpWaitingFromReply;
-                            
+
                             NSString *mailFrom = [NSString stringWithFormat:@"MAIL FROM:<%@>\r\n", self.fromEmail];
                             NSLog(@"C: %@", mailFrom);
                             if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[mailFrom UTF8String], (CFIndex) [mailFrom lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -463,32 +463,32 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 }
                 case smtpWaitingTLSReply:{
                     if ([tmpLine hasPrefix:@"220 "]){
-                        
+
                         // Attempt to use TLSv1
                         CFMutableDictionaryRef sslOptions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-                        
+
                         CFDictionarySetValue(sslOptions, kCFStreamSSLLevel, kCFStreamSocketSecurityLevelTLSv1);
-                        
+
                         if (!self.validateSSLChain) {
                             // Don't validate SSL certs. This is terrible, please complain loudly to your BOFH.
                             NSLog(@"WARNING: Will not validate SSL chain!!!");
                             CFDictionarySetValue(sslOptions, kCFStreamSSLValidatesCertificateChain, kCFBooleanFalse);
                         }
-                        
+
                         NSLog(@"Beginning TLSv1...");
-                        
+
                         CFReadStreamSetProperty((__bridge CFReadStreamRef)self.inputStream, kCFStreamPropertySSLSettings, sslOptions);
                         CFWriteStreamSetProperty((__bridge CFWriteStreamRef)self.outputStream, kCFStreamPropertySSLSettings, sslOptions);
-                        
+
                         CFRelease(sslOptions);
-                        
+
                         // restart the connection
                         self.sendState = smtpWaitingEHLOReply;
                         self.isSecure = YES;
-                        
+
                         NSString *ehlo = [NSString stringWithFormat:@"EHLO %@\r\n", @"localhost"];
                         NSLog(@"C: %@", ehlo);
-                        
+
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[ehlo UTF8String], (CFIndex) [ehlo lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
                             error =  [self.outputStream streamError];
                             encounteredError = YES;
@@ -501,7 +501,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingLOGINUsernameReply:{
                     if ([tmpLine hasPrefix:@"334 VXNlcm5hbWU6"]){
                         self.sendState = smtpWaitingLOGINPasswordReply;
-                        
+
                         NSString *authString = [NSString stringWithFormat:@"%@\r\n", [[self.login dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0]];
                         NSLog(@"C: %@", authString);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[authString UTF8String], (CFIndex) [authString lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -517,7 +517,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingLOGINPasswordReply:{
                     if ([tmpLine hasPrefix:@"334 UGFzc3dvcmQ6"]){
                         self.sendState = smtpWaitingAuthSuccess;
-                        
+
                         NSString *authString = [NSString stringWithFormat:@"%@\r\n", [[self.pass dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0]];
                         NSLog(@"C: %@", authString);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[authString UTF8String], (CFIndex) [authString lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -533,7 +533,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingAuthSuccess:{
                     if ([tmpLine hasPrefix:@"235 "]){
                         self.sendState = smtpWaitingFromReply;
-                        
+
                         NSString *mailFrom = self.server8bitMessages ? [NSString stringWithFormat:@"MAIL FROM:<%@> BODY=8BITMIME\r\n", self.fromEmail] : [NSString stringWithFormat:@"MAIL FROM:<%@>\r\n", self.fromEmail];
                         NSLog(@"C: %@", mailFrom);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[mailFrom cStringUsingEncoding:NSASCIIStringEncoding], (CFIndex) [mailFrom lengthOfBytesUsingEncoding:NSASCIIStringEncoding]) < 0){
@@ -555,10 +555,10 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingFromReply:{
                     // toc 2009-02-18 begin changes per mdesaro issue 18 - http://code.google.com/p/skpsmtpmessage/issues/detail?id=18
                     // toc 2009-02-18 begin changes to support cc & bcc
-                    
+
                     if ([tmpLine hasPrefix:@"250 "]){
                         self.sendState = smtpWaitingToReply;
-                        
+
                         NSMutableString	*multipleRcptTo = [NSMutableString string];
                         [multipleRcptTo appendString:[self formatAddresses:self.toEmail]];
                         [multipleRcptTo appendString:[self formatAddresses:self.ccEmail]];
@@ -576,7 +576,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingToReply:{
                     if ([tmpLine hasPrefix:@"250 "]){
                         self.sendState = smtpWaitingForEnterMail;
-                        
+
                         NSString *dataString = @"DATA\r\n";
                         NSLog(@"C: %@", dataString);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[dataString UTF8String], (CFIndex) [dataString lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -604,7 +604,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingForEnterMail:{
                     if ([tmpLine hasPrefix:@"354 "]){
                         self.sendState = smtpWaitingSendSuccess;
-                        
+
                         if (![self sendParts]){
                             error =  [self.outputStream streamError];
                             encounteredError = YES;
@@ -615,7 +615,7 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
                 case smtpWaitingSendSuccess:{
                     if ([tmpLine hasPrefix:@"250 "]){
                         self.sendState = smtpWaitingQuitReply;
-                        
+
                         NSString *quitString = @"QUIT\r\n";
                         NSLog(@"C: %@", quitString);
                         if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[quitString UTF8String], (CFIndex) [quitString lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
@@ -646,16 +646,16 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
         }
     }
     self.inputString = [[self.inputString substringFromIndex:[scanner scanLocation]] mutableCopy];
-    
+
     if (messageSent){
         [self cleanUpStreams];
-        
+
         [self.delegate mailSent:self];
     }
     else if (encounteredError)
     {
         [self cleanUpStreams];
-        
+
         [self.delegate mailFailed:self error:error];
     }
 }
@@ -663,16 +663,16 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
 - (BOOL)sendParts{
     NSMutableString *message = [[NSMutableString alloc] init];
     static NSString *separatorString = @"--JFMailSender--Separator--Delimiter\r\n";
-    
+
     CFUUIDRef	uuidRef   = CFUUIDCreate(kCFAllocatorDefault);
     NSString	*uuid     = (NSString *)CFBridgingRelease(CFUUIDCreateString(kCFAllocatorDefault, uuidRef));
     CFRelease(uuidRef);
-    
+
     NSDate *now = [[NSDate alloc] init];
     NSDateFormatter	*dateFormatter = [[NSDateFormatter alloc] init];
-    
+
     [dateFormatter setDateFormat:@"EEE, dd MMM yyyy HH:mm:ss Z"];
-    
+
     [message appendFormat:@"Date: %@\r\n", [dateFormatter stringFromDate:now]];
     [message appendFormat:@"Message-id: <%@@%@>\r\n", [(NSString *)uuid stringByReplacingOccurrencesOfString:@"-" withString:@""], self.relayHost];
     if (self.fromName) {
@@ -680,30 +680,30 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
     } else {
         [message appendFormat:@"From:%@\r\n", self.fromEmail];
     }
-    
-    
+
+
     if ((self.toEmail != nil) && (![self.toEmail isEqualToString:@""])){
         [message appendFormat:@"To:%@\r\n", self.toEmail];
     }
-    
+
     if ((self.ccEmail != nil) && (![self.ccEmail isEqualToString:@""])){
         [message appendFormat:@"Cc:%@\r\n", self.ccEmail];
     }
-    
+
     [message appendString:@"Content-Type: multipart/mixed; boundary=JFMailSender--Separator--Delimiter\r\n"];
     [message appendString:@"Mime-Version: 1.0 (JFMailSender 1.0)\r\n"];
     [message appendFormat:@"Subject:%@\r\n\r\n",self.subject];
     [message appendString:separatorString];
-    
+
     NSData *messageData = [message dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
-    
+
     NSLog(@"C: %p", [messageData bytes]);
     if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[messageData bytes], (CFIndex) [messageData length]) < 0){
         return NO;
     }
-    
+
     message = [[NSMutableString alloc] init];
-    
+
     for (NSDictionary *part in self.parts){
         if (part[smtpPartContentDispositionKey]){
             [message appendFormat:@"Content-Disposition: %@\r\n", part[smtpPartContentDispositionKey]];
@@ -714,48 +714,48 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
         [message appendString:@"\r\n"];
         [message appendString:separatorString];
     }
-    
+
     [message appendString:@"\r\n.\r\n"];
-    
+
     NSLog(@"C: %@", message);
     if (CFWriteStreamWriteFully((__bridge CFWriteStreamRef)self.outputStream, (const uint8_t *)[message UTF8String], (CFIndex) [message lengthOfBytesUsingEncoding:NSUTF8StringEncoding]) < 0){
         return NO;
     }
     [self startLongWatchdog];
     return YES;
-    
+
 }
 - (NSString *)formatAddresses:(NSString *)addresses {
     NSCharacterSet	*splitSet = [NSCharacterSet characterSetWithCharactersInString:@";,"];
     NSMutableString	*multipleRcptTo = [NSMutableString string];
-    
+
     if ((addresses != nil) && (![addresses isEqualToString:@""])) {
         if( [addresses rangeOfString:@";"].location != NSNotFound || [addresses rangeOfString:@","].location != NSNotFound ) {
             NSArray *addressParts = [addresses componentsSeparatedByCharactersInSet:splitSet];
-            
+
             for( NSString *address in addressParts ) {
                 [multipleRcptTo appendString:[self formatAnAddress:address]];
             }
         }
         else {
             [multipleRcptTo appendString:[self formatAnAddress:addresses]];
-        }		
+        }
     }
-    
+
     return(multipleRcptTo);
 }
 
 - (NSString *)formatAnAddress:(NSString *)address {
     NSString		*formattedAddress;
     NSCharacterSet	*whitespaceCharSet = [NSCharacterSet whitespaceCharacterSet];
-    
+
     if (([address rangeOfString:@"<"].location == NSNotFound) && ([address rangeOfString:@">"].location == NSNotFound)) {
         formattedAddress = [NSString stringWithFormat:@"RCPT TO:<%@>\r\n", [address stringByTrimmingCharactersInSet:whitespaceCharSet]];
     }
     else {
         formattedAddress = [NSString stringWithFormat:@"RCPT TO:%@\r\n", [address stringByTrimmingCharactersInSet:whitespaceCharSet]];
     }
-    
+
     return(formattedAddress);
 }
 //iOS 中的 NSStream 不支持 NShost，这是一个缺陷，苹果也意识到这问题了（http://developer.apple.com/library/ios/#qa/qa1652/_index.html）
@@ -764,17 +764,17 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
     CFHostRef           host;
     CFReadStreamRef     readStream;
     CFWriteStreamRef    writeStream;
-    
+
     readStream = NULL;
     writeStream = NULL;
-    
+
     host = CFHostCreateWithName(NULL, (__bridge_retained CFStringRef)hostName);
-    
+
     if (host != NULL){
         (void) CFStreamCreatePairWithSocketToCFHost(NULL, host, (SInt32)port, &readStream, &writeStream);
         CFRelease(host);
     }
-    
+
     self.inputStream = (NSInputStream *) CFBridgingRelease(readStream);
 //    if (outputStream == NULL)
 //    {
@@ -792,12 +792,12 @@ NSString *smtpPartContentTransferEncodingKey = @"smtpPartContentTransferEncoding
 {
     [self.inputStream close];
     [self.inputStream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                           forMode:NSDefaultRunLoopMode];
+                                forMode:NSDefaultRunLoopMode];
     self.inputStream = nil;
-    
+
     [self.outputStream close];
     [self.outputStream removeFromRunLoop:[NSRunLoop currentRunLoop]
-                            forMode:NSDefaultRunLoopMode];
+                                 forMode:NSDefaultRunLoopMode];
     self.outputStream = nil;
 }
 
