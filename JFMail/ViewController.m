@@ -73,7 +73,7 @@
 - (void)mailFailed:(JFMailSender *)message error:(NSError *)error
 {
     //if something must run in main thread,please use dispatch_get_main_queue();
-    NSLog(@"%@", [NSString stringWithFormat:@"Darn! Error!\n%i: %@\n%@", [error code], [error localizedDescription], [error localizedRecoverySuggestion]]);
+    NSLog(@"%@", [NSString stringWithFormat:@"Darn! Error!\n%li: %@\n%@", (long)[error code], [error localizedDescription], [error localizedRecoverySuggestion]]);
 }
 
 @end
