@@ -47,23 +47,14 @@ struct Mail: CustomDebugStringConvertible {
     var address: String?
     var subject: String?
     var body: String?
+    var contentType: String?
+    var contentTransferEncoding: String?
 
     var debugDescription: String {
-        return "address: \(address ?? "nil"), subject: \(subject ?? "nil"), body: \(body ?? "nil")"
+        return "address: \(address ?? "nil"), subject: \(subject ?? "nil"), body: \(body ?? "nil"), parts -> contentType: \(contentType ?? "nil"), contentTransferEncoding: \(contentTransferEncoding ?? "nil" )"
     }
 }
 
-//extension Mail: Copyable {
-
-//    func copy() -> Copyable {
-//        var mail = Mail()
-//        mail.address = self.address
-//        mail.body = self.body
-//        mail.subject = self.subject
-//        return mail
-//    }
-
-//}
 struct MailHostConfiguration: CustomDebugStringConvertible {
     var relayHost: String?
     var requiresAuth: Bool?
