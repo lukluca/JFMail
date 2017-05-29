@@ -10,7 +10,7 @@ protocol JFMailSenderDelegate {
     func mailFailed(sender: JFMailSender, error: NSError)
 }
 
-class JFMailSender {
+class JFMailSender: NSObject {
 
     public var hostConfiguration: MailHostConfiguration
     public var user: MailUser
@@ -21,6 +21,7 @@ class JFMailSender {
     public var cnEmail: String?
     public var connectTimeout: TimeInterval = 8.0
     public var delegate: JFMailSenderDelegate?
+    public var relayPorts: Array<Int>?
 
     private var watchdogTimer: Timer?
     private var connectTimer: Timer?
@@ -28,6 +29,8 @@ class JFMailSender {
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
     private var relayHost: String!
+    private var isSecure: Bool?
+    private var inputString: String?
 
     //MARK: Initialisation & Deinitialisation
 
@@ -60,7 +63,7 @@ class JFMailSender {
         watchdogTimer = nil;
     }
 
-    func connectionConnectedCheck(aTimer: Timer) {
+    @objc func connectionConnectedCheck(aTimer: Timer) {
         if (sendState == .connecting) {
             cleanUpStreams()
 
@@ -101,7 +104,7 @@ class JFMailSender {
 
     //MARK: Connection
 
-    func checkRelayHostWithError(error: inout NSError?) -> Bool {
+    func checkRelayHost(error: inout NSError?) -> Bool {
 
         let host = CFHostCreateWithName(nil, relayHost as CFString).takeRetainedValue()
         var streamError: UnsafeMutablePointer<CFStreamError>?
@@ -129,7 +132,7 @@ class JFMailSender {
             }
         }
 
-        var hasBeenResolved:  UnsafeMutablePointer<DarwinBoolean>?
+        var hasBeenResolved: UnsafeMutablePointer<DarwinBoolean>?
         CFHostGetAddressing(host, hasBeenResolved)
         if let pointerHasBeenResolved = hasBeenResolved, !pointerHasBeenResolved.pointee.boolValue {
             if error != nil {
@@ -143,30 +146,91 @@ class JFMailSender {
 
     func sendMail() {
 
-        guard let reqAuth = hostConfiguration.requiresAuth
-              else {
-            return assert(false, "send requires hostConfiguration requiresAuth set")
-        }
-
-        guard let mailVal = mail
-                else {
-            return assert(false, "send requires mail set")
-        }
-
-
+        assert((hostConfiguration.requiresAuth != nil), "send requires hostConfiguration requiresAuth set")
+        assert((mail != nil), "send requires mail set")
         assert(sendState == .idle, "Message has already been sent!")
         assert((user.email != nil), "send requires mail toEmail")
-        if reqAuth {
+        if let reqAuth = hostConfiguration.requiresAuth, reqAuth {
             assert((user.login != nil), "auth requires login")
             assert((user.password != nil), "auth requires pass")
         }
         assert((relayHost != nil), "send requires relayHost")
-        assert((mailVal.subject != nil), "send requires mail subject")
-        assert((mailVal.address != nil), "send requires mail address")
-        assert((mailVal.contentType != nil), "send requires mail contentType")
-        assert((mailVal.contentTransferEncoding != nil), "send requires mail contentTransferEncoding")
+        if let mailVal = mail {
+            assert((mailVal.subject != nil), "send requires mail subject")
+            assert((mailVal.address != nil), "send requires mail address")
+            assert((mailVal.contentType != nil), "send requires mail contentType")
+            assert((mailVal.contentTransferEncoding != nil), "send requires mail contentTransferEncoding")
+        }
 
+        var error: NSError?
 
+        if (!checkRelayHost(error: &error)) {
+            if let err = error {
+                delegate?.mailFailed(sender: self, error: err)
+            }
+            return
+        }
+
+        if let ports = relayPorts, ports.count == 0 {
+            DispatchQueue.global().async {
+                self.delegate?.mailFailed(sender: self, error: NSError.init(domain: "SKPSMTPMessageError", code: SmtpError.connectionFailed.rawValue, userInfo:
+                [NSLocalizedDescriptionKey: NSLocalizedString("Unable to connect to the server.", comment: "server connection fail error description"),
+                 NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Try sending your message again later.", comment: "server generic error recovery")]))
+            }
+            return
+        }
+
+        // Grab the next relay port
+        if let ports = relayPorts, let port = ports.first {
+            // Pop this off the head of the queue.
+            relayPorts = ports.count > 1 ? Array(ports[1..<ports.count]) : []
+            debugPrint("C: Attempting to connect to server at:", relayHost, port)
+            connectTimer = Timer(timeInterval: connectTimeout, target: self, selector: #selector(connectionConnectedCheck), userInfo: nil, repeats: false)
+            if let timer = connectTimer {
+                RunLoop.current.add(timer, forMode: .defaultRunLoopMode)
+            }
+
+            getStreams(hostName: relayHost, port: port)
+
+            if let input = inputStream, let output = outputStream {
+                sendState = .connecting
+                isSecure = false
+                input.delegate = self
+                output.delegate = self
+                input.schedule(in: .current, forMode: .defaultRunLoopMode)
+                output.schedule(in: .current, forMode: .defaultRunLoopMode)
+                input.open()
+                output.open()
+                inputString = ""
+                if !RunLoop.current.isEqual(RunLoop.main) {
+                    RunLoop.current.run()
+                }
+                return
+            } else {
+                connectTimer?.invalidate()
+                connectTimer = nil
+                delegate?.mailFailed(sender: self, error: NSError(domain: "SKPSMTPMessageError", code: SmtpError.connectionFailed.rawValue, userInfo:
+                [NSLocalizedDescriptionKey: NSLocalizedString("Unable to connect to the server.", comment: "server connection fail error description"),
+                 NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Try sending your message again later.", comment: "server generic error recovery")]
+                ))
+            }
+
+        }
+    }
+
+    //iOS NSStream doesn't support NSHost.This is a defect know to Apple (http://developer.apple.com/library/ios/#qa/qa1652/_index.html).
+    //Next lines of code are the same workaround, wrote in Swift language.
+    func getStreams(hostName: String, port: Int) {
+        let host: CFHost? = CFHostCreateWithName(nil, hostName as CFString).takeUnretainedValue()
+        var readStream: Unmanaged<CFReadStream>? = nil
+        var writeStream: Unmanaged<CFWriteStream>? = nil
+
+        if let hos = host {
+            CFStreamCreatePairWithSocketToCFHost(nil, hos, Int32(port), &readStream, &writeStream)
+        }
+
+        self.inputStream = readStream?.takeRetainedValue()
+        self.outputStream = writeStream?.takeRetainedValue()
     }
 }
 
@@ -180,6 +244,15 @@ extension JFMailSender: NSCopying {
         mailSenderCopy.ccEmail = self.ccEmail
         mailSenderCopy.cnEmail = self.cnEmail
         return mailSenderCopy;
+
+    }
+
+}
+
+//MARK: StreamDelegate
+extension JFMailSender: StreamDelegate {
+
+    public func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
 
     }
 
