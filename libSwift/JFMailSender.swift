@@ -64,7 +64,7 @@ class JFMailSender: NSObject {
     }
 
     @objc func connectionConnectedCheck(aTimer: Timer) {
-        if (sendState == .connecting) {
+        if sendState == .connecting {
             cleanUpStreams()
 
             // Try the next port - if we don't have another one to try, this will fail
@@ -164,7 +164,7 @@ class JFMailSender: NSObject {
 
         var error: NSError?
 
-        if (!checkRelayHost(error: &error)) {
+        if !checkRelayHost(error: &error) {
             if let err = error {
                 delegate?.mailFailed(sender: self, error: err)
             }
