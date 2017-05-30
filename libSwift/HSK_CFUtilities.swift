@@ -5,8 +5,9 @@
 
 import Foundation
 
-func CFWriteStreamWriteFully(outputStream: CFWriteStream, buffer: [UnsafePointer<UInt8>], length: CFIndex) -> CFIndex {
+func CFWriteStreamWriteFully(outputStream: CFWriteStream, utf8String: String.UTF8View, length: CFIndex) -> CFIndex {
 
+    var buffer: [UInt8] = Array(utf8String)
     var bufferOffset: CFIndex = 0
     var bytesWritten: CFIndex;
 
@@ -14,7 +15,7 @@ func CFWriteStreamWriteFully(outputStream: CFWriteStream, buffer: [UnsafePointer
     {
         if (CFWriteStreamCanAcceptBytes(outputStream))
         {
-            bytesWritten = CFWriteStreamWrite(outputStream, buffer[bufferOffset], length - bufferOffset);
+            bytesWritten = CFWriteStreamWrite(outputStream, &buffer[bufferOffset], length - bufferOffset);
             if (bytesWritten < 0)
             {
                 // Bail!
