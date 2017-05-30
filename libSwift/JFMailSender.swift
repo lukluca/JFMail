@@ -290,7 +290,7 @@ extension JFMailSender: StreamDelegate {
 
         var error: Error?
         var encounteredError = false
-        let  messageSent = false
+        let messageSent = false
 
         if let str = inputString {
             let scanner = Scanner(string: str)
@@ -308,8 +308,8 @@ extension JFMailSender: StreamDelegate {
                                 sendState = SmtpState.waitingEHLOReply
                                 let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
                                 debugPrint("C: \(ehlo)")
-                                if let uotp = outputStream, CFWriteStreamWriteFully(outputStream: uotp, utf8String: ehlo.utf8, length: ehlo.lengthOfBytes(using: .utf8)) < 0 {
-                                    error = uotp.streamError
+                                if CFWriteStreamWriteFully(outputStream: outputStream, utf8String: ehlo.utf8, length: ehlo.lengthOfBytes(using: .utf8)) < 0 {
+                                    error = outputStream?.streamError
                                     encounteredError = true
 
                                 }
