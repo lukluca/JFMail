@@ -5,7 +5,7 @@
 
 import Foundation
 
-func CFWriteStreamWriteFully(outputStream: CFWriteStream, utf8String: String.UTF8View, length: CFIndex) -> CFIndex {
+func CFWriteStreamWriteFully(outputStream: CFWriteStream?, utf8String: String.UTF8View, length: CFIndex) -> CFIndex {
 
     var buffer = Array(utf8String)
     var bufferOffset: CFIndex = 0
