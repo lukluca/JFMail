@@ -23,14 +23,16 @@ class JFMailSender: NSObject {
     public var delegate: JFMailSenderDelegate?
     public var relayPorts: Array<Int>?
 
+    fileprivate var sendState: SmtpState?
+    fileprivate var inputString: String?
+
     private var watchdogTimer: Timer?
     private var connectTimer: Timer?
-    private var sendState: SmtpState?
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
     private var relayHost: String!
     private var isSecure: Bool?
-    private var inputString: String?
+
 
     //MARK: Initialisation & Deinitialisation
 
@@ -47,17 +49,17 @@ class JFMailSender: NSObject {
 
     //MARK: Connection Timers
 
-    func startShortWatchdog() {
+    private func startShortWatchdog() {
         debugPrint("*** starting short watchdog ***")
         watchdogTimer = Timer.scheduledTimer(timeInterval: Timeout.SHORT_LIVENESS.rawValue, target: self, selector: #selector(connectionWatchdog), userInfo: nil, repeats: false)
     }
 
-    func startLongWatchdog() {
+    private func startLongWatchdog() {
         debugPrint("*** starting long watchdog ***")
         watchdogTimer = Timer.scheduledTimer(timeInterval: Timeout.LONG_LIVENESS.rawValue, target: self, selector: #selector(connectionWatchdog), userInfo: nil, repeats: false)
     }
 
-    func stopWatchdog() {
+    fileprivate func stopWatchdog() {
         debugPrint("*** stopping watchdog ***")
         watchdogTimer?.invalidate();
         watchdogTimer = nil;
@@ -75,7 +77,7 @@ class JFMailSender: NSObject {
 
     }
 
-    //Mark: Watchdog Callback
+    //MARK: Watchdog Callback
     @objc func connectionWatchdog(aTimer: Timer) {
         cleanUpStreams()
 
@@ -93,7 +95,7 @@ class JFMailSender: NSObject {
         }
     }
 
-    func cleanUpStreams() {
+    private func cleanUpStreams() {
         inputStream?.close()
         inputStream?.remove(from: .current, forMode: .defaultRunLoopMode)
         inputStream = nil;
@@ -104,15 +106,15 @@ class JFMailSender: NSObject {
 
     //MARK: Connection
 
-    func checkRelayHost(error: inout NSError?) -> Bool {
+    private func checkRelayHost(error: inout NSError?) -> Bool {
 
         let host = CFHostCreateWithName(nil, relayHost as CFString).takeRetainedValue()
-        var streamError: UnsafeMutablePointer<CFStreamError>?
+        var streamError: CFStreamError?
 
-        if !CFHostStartInfoResolution(host, .addresses, streamError) {
+        if !CFHost.Start(theHost: host, CFHostInfoType: .addresses , error: &streamError) {
             var errorDomainName: String
-            if let pointerStreamError = streamError {
-                switch (pointerStreamError.pointee.domain) {
+            if let strErr = streamError {
+                switch (strErr.domain) {
                 case CFStreamErrorDomain.custom.rawValue:
                     errorDomainName = "kCFStreamErrorDomainCustom";
                 case CFStreamErrorDomain.POSIX.rawValue:
@@ -120,11 +122,11 @@ class JFMailSender: NSObject {
                 case CFStreamErrorDomain.macOSStatus.rawValue:
                     errorDomainName = "kCFStreamErrorDomainMacOSStatus";
                 default:
-                    errorDomainName = "Generic CFStream Error Domain \(pointerStreamError.pointee.domain)";
+                    errorDomainName = "Generic CFStream Error Domain \(strErr.domain)";
                 }
 
                 if error != nil {
-                    error = NSError(domain: errorDomainName, code: Int(pointerStreamError.pointee.error), userInfo: [NSLocalizedDescriptionKey: "Error resolving address.", NSLocalizedRecoverySuggestionErrorKey: "Check your SMTP Host name"])
+                    error = NSError(domain: errorDomainName, code: Int(strErr.error), userInfo: [NSLocalizedDescriptionKey: "Error resolving address.", NSLocalizedRecoverySuggestionErrorKey: "Check your SMTP Host name"])
                 }
 
                 return false
@@ -132,9 +134,9 @@ class JFMailSender: NSObject {
             }
         }
 
-        var hasBeenResolved: UnsafeMutablePointer<DarwinBoolean>?
-        CFHostGetAddressing(host, hasBeenResolved)
-        if let pointerHasBeenResolved = hasBeenResolved, !pointerHasBeenResolved.pointee.boolValue {
+        var hasBeenResolved: Bool?
+        CFHost.GetAddressing(theHost: host, hasBeenResolved: &hasBeenResolved)
+        if let hBR = hasBeenResolved, hBR {
             if error != nil {
                 error = NSError(domain: "SKPSMTPMessageError", code: SmtpError.nonExistentDomain.rawValue, userInfo: [NSLocalizedDescriptionKey: "Error resolving host.", NSLocalizedRecoverySuggestionErrorKey: "Check your SMTP Host name"])
             }
@@ -144,7 +146,7 @@ class JFMailSender: NSObject {
         return true
     }
 
-    func sendMail() {
+    private func sendMail() {
 
         assert((hostConfiguration.requiresAuth != nil), "send requires hostConfiguration requiresAuth set")
         assert((mail != nil), "send requires mail set")
@@ -220,17 +222,17 @@ class JFMailSender: NSObject {
 
     //iOS NSStream doesn't support NSHost.This is a defect know to Apple (http://developer.apple.com/library/ios/#qa/qa1652/_index.html).
     //Next lines of code are the same workaround, wrote in Swift language.
-    func getStreams(hostName: String, port: Int) {
+    private func getStreams(hostName: String, port: Int) {
         let host: CFHost? = CFHostCreateWithName(nil, hostName as CFString).takeUnretainedValue()
-        var readStream: Unmanaged<CFReadStream>? = nil
-        var writeStream: Unmanaged<CFWriteStream>? = nil
+        var readStream: CFReadStream? = nil
+        var writeStream: CFWriteStream? = nil
 
         if let hos = host {
-            CFStreamCreatePairWithSocketToCFHost(nil, hos, Int32(port), &readStream, &writeStream)
+            CFStream.CreatePair(theHost: hos, port: port, readStream: &readStream, writeStream: &writeStream)
         }
 
-        self.inputStream = readStream?.takeRetainedValue()
-        self.outputStream = writeStream?.takeRetainedValue()
+        self.inputStream = readStream
+        self.outputStream = writeStream
     }
 }
 
@@ -253,6 +255,37 @@ extension JFMailSender: NSCopying {
 extension JFMailSender: StreamDelegate {
 
     public func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
+
+        switch eventCode {
+        case Stream.Event.hasBytesAvailable:
+            let buf = UnsafeMutablePointer<UInt8>.allocate(capacity: 1024)
+            memset(buf, 0, MemoryLayout<UInt8>.size * 1024);
+            var len = 0
+            if let inputStream = aStream as? InputStream {
+                len = inputStream.read(buf, maxLength: MemoryLayout<UInt8>.size * 1024)
+            }
+            if len > 0 {
+                if let tmpString = String(bytes: buf, length: len, encoding: String.Encoding.utf8){
+                    inputString?.append(tmpString)
+                    parseBuffer()
+                }
+            }
+        case Stream.Event.endEncountered:
+            stopWatchdog()
+            aStream.close()
+            aStream.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
+            if(sendState != SmtpState.messageSent){
+                self.delegate?.mailFailed(sender: self, error: NSError(domain: "SKPSMTPMessageError", code: SmtpError.connectionInterrupted.rawValue, userInfo:
+                    [NSLocalizedDescriptionKey: NSLocalizedString("The connection to the server was interrupted.", comment: "server connection interrupted error description"),
+                 NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Try sending your message again later.", comment: "server generic error recovery")]))
+            }
+
+        default:
+            ()
+        }
+    }
+
+    private func parseBuffer(){
 
     }
 
