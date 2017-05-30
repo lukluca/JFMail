@@ -301,25 +301,26 @@ extension JFMailSender: StreamDelegate {
                     stopWatchdog()
                     debugPrint("S: \(tmpLine)");
 
+                    if let state = sendState {
+                        switch state {
+                        case SmtpState.connecting:
+                            if tmpLine.hasPrefix("220 ") {
+                                sendState = SmtpState.waitingEHLOReply
+                                let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
+                                debugPrint("C: \(ehlo)")
+                                if let uotp = outputStream, CFWriteStreamWriteFully(outputStream: uotp, utf8String: ehlo.utf8, length: ehlo.lengthOfBytes(using: .utf8)) < 0 {
+                                    error = uotp.streamError
+                                    encounteredError = true
 
-                    switch sendState {
-                    case smtpConnecting:{
-                        if tmpLine.hasPrefix("220 "){
-                            self.sendState = SmtpState.waitingEHLOReply
-                            let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
-                            debugPrint("C: \(ehlo)")
-                            if let uotp = self.outputStream, CFWriteStreamWriteFully(outputStream: uotp, utf8String: ehlo.utf8, length: ehlo.lengthOfBytes(using: .utf8)) < 0 {
-                                error = uotp.streamError
-                                encounteredError = true
-
+                                }
+                            } else {
+                                startShortWatchdog()
                             }
-                        } else {
-                            self.startShortWatchdog()
+                        default:
+                            ()
+
+
                         }
-                    }
-
-
-
                     }
                 }
 
