@@ -29,7 +29,7 @@ class JFMailSender: NSObject {
     private var watchdogTimer: Timer?
     private var connectTimer: Timer?
     private var inputStream: InputStream?
-    private var outputStream: OutputStream?
+    fileprivate var outputStream: OutputStream?
     private var relayHost: String!
     private var isSecure: Bool?
 
@@ -49,7 +49,7 @@ class JFMailSender: NSObject {
 
     //MARK: Connection Timers
 
-    private func startShortWatchdog() {
+    fileprivate func startShortWatchdog() {
         debugPrint("*** starting short watchdog ***")
         watchdogTimer = Timer.scheduledTimer(timeInterval: Timeout.SHORT_LIVENESS.rawValue, target: self, selector: #selector(connectionWatchdog), userInfo: nil, repeats: false)
     }
@@ -276,7 +276,7 @@ extension JFMailSender: StreamDelegate {
             aStream.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
             if(sendState != SmtpState.messageSent){
                 self.delegate?.mailFailed(sender: self, error: NSError(domain: "SKPSMTPMessageError", code: SmtpError.connectionInterrupted.rawValue, userInfo:
-                    [NSLocalizedDescriptionKey: NSLocalizedString("The connection to the server was interrupted.", comment: "server connection interrupted error description"),
+                [NSLocalizedDescriptionKey: NSLocalizedString("The connection to the server was interrupted.", comment: "server connection interrupted error description"),
                  NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Try sending your message again later.", comment: "server generic error recovery")]))
             }
 
@@ -286,6 +286,45 @@ extension JFMailSender: StreamDelegate {
     }
 
     private func parseBuffer(){
+        // Pull out the next line
+
+        var error: Error?
+        var encounteredError = false
+        let  messageSent = false
+
+        if let str = inputString {
+            let scanner = Scanner(string: str)
+
+            while (!scanner.isAtEnd){
+
+                if  let tmpLine = scanner.scanUpToCharacters(from: .newlines){
+                    stopWatchdog()
+                    debugPrint("S: \(tmpLine)");
+
+
+                    switch sendState {
+                    case smtpConnecting:{
+                        if tmpLine.hasPrefix("220 "){
+                            self.sendState = SmtpState.waitingEHLOReply
+                            let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
+                            debugPrint("C: \(ehlo)")
+                            if let uotp = self.outputStream, CFWriteStreamWriteFully(outputStream: uotp, utf8String: ehlo.utf8, length: ehlo.lengthOfBytes(using: .utf8)) < 0 {
+                                error = uotp.streamError
+                                encounteredError = true
+
+                            }
+                        } else {
+                            self.startShortWatchdog()
+                        }
+                    }
+
+
+
+                    }
+                }
+
+            }
+        }
 
     }
 
