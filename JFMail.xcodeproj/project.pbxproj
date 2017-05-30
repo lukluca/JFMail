@@ -7,9 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		43DD0AA61EDCA2C100C8E68C /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43DD0AA51EDCA2C100C8E68C /* String+Extensions.swift */; };
+		47E4710D36123482180A255F /* CFHost+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4762AFD7E0D415921C74B /* CFHost+Extensions.swift */; };
 		47E4746DC72BC8FAFC615A92 /* HSK_CFUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4715D8E225DE81332BB1C /* HSK_CFUtilities.swift */; };
 		47E476586F31F2972D932942 /* MailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4783D55E60A183D771B89 /* MailService.swift */; };
 		47E47940A8DD45C249B654E8 /* JFMailDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E47203C88552606A079233 /* JFMailDefinitions.swift */; };
+		47E47BBE18FC10F8319A6AEC /* CFStream+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E475DCC510A7A216E33D44 /* CFStream+Extensions.swift */; };
 		47E47FD8191B9AD6F0598F7A /* JFMailSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E47F88BB10D6BC3A7CCD2E /* JFMailSender.swift */; };
 		C22B83A31C4690D4009F2EC6 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C22B83A21C4690D4009F2EC6 /* main.m */; };
 		C22B83A61C4690D4009F2EC6 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C22B83A51C4690D4009F2EC6 /* AppDelegate.m */; };
@@ -26,8 +29,11 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		43DD0AA51EDCA2C100C8E68C /* String+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		47E4715D8E225DE81332BB1C /* HSK_CFUtilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HSK_CFUtilities.swift; sourceTree = "<group>"; };
 		47E47203C88552606A079233 /* JFMailDefinitions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JFMailDefinitions.swift; sourceTree = "<group>"; };
+		47E475DCC510A7A216E33D44 /* CFStream+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CFStream+Extensions.swift"; sourceTree = "<group>"; };
+		47E4762AFD7E0D415921C74B /* CFHost+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CFHost+Extensions.swift"; sourceTree = "<group>"; };
 		47E4783D55E60A183D771B89 /* MailService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MailService.swift; sourceTree = "<group>"; };
 		47E47F88BB10D6BC3A7CCD2E /* JFMailSender.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JFMailSender.swift; sourceTree = "<group>"; };
 		C22B839E1C4690D4009F2EC6 /* JFMail.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JFMail.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -71,8 +77,19 @@
 				47E4715D8E225DE81332BB1C /* HSK_CFUtilities.swift */,
 				47E47203C88552606A079233 /* JFMailDefinitions.swift */,
 				47E4783D55E60A183D771B89 /* MailService.swift */,
+				47E47BFA92AD32A0921C766F /* extensions */,
 			);
 			path = libSwift;
+			sourceTree = "<group>";
+		};
+		47E47BFA92AD32A0921C766F /* extensions */ = {
+			isa = PBXGroup;
+			children = (
+				47E4762AFD7E0D415921C74B /* CFHost+Extensions.swift */,
+				47E475DCC510A7A216E33D44 /* CFStream+Extensions.swift */,
+				43DD0AA51EDCA2C100C8E68C /* String+Extensions.swift */,
+			);
+			path = extensions;
 			sourceTree = "<group>";
 		};
 		C22B83951C4690D4009F2EC6 = {
@@ -210,11 +227,14 @@
 				C22B83A91C4690D4009F2EC6 /* ViewController.m in Sources */,
 				C22B83BB1C46971C009F2EC6 /* JFMailSender.m in Sources */,
 				C22B83A61C4690D4009F2EC6 /* AppDelegate.m in Sources */,
+				43DD0AA61EDCA2C100C8E68C /* String+Extensions.swift in Sources */,
 				C22B83A31C4690D4009F2EC6 /* main.m in Sources */,
 				47E47FD8191B9AD6F0598F7A /* JFMailSender.swift in Sources */,
 				47E4746DC72BC8FAFC615A92 /* HSK_CFUtilities.swift in Sources */,
 				47E47940A8DD45C249B654E8 /* JFMailDefinitions.swift in Sources */,
 				47E476586F31F2972D932942 /* MailService.swift in Sources */,
+				47E4710D36123482180A255F /* CFHost+Extensions.swift in Sources */,
+				47E47BBE18FC10F8319A6AEC /* CFStream+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
