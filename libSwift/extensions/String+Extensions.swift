@@ -14,4 +14,9 @@ extension String {
         self.init(bytesNoCopy: bytes, length: length, encoding: encoding, freeWhenDone: true)
     }
 
+    func nsRange(of: String) -> NSRange{
+        let nsString = NSString(string: self)
+        return nsString.range(of: of)
+    }
+
 }
