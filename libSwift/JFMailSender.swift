@@ -31,7 +31,15 @@ class JFMailSender: NSObject {
     private var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
     private var relayHost: String!
-    private var isSecure: Bool?
+    fileprivate var isSecure = false
+
+    // Auth support flags
+    fileprivate var serverAuthPLAIN = false
+    fileprivate var serverAuthLOGIN = false
+
+    // Content support flags
+    fileprivate var server8bitMessages = false
+
 
 
     //MARK: Initialisation & Deinitialisation
@@ -308,7 +316,7 @@ extension JFMailSender: StreamDelegate {
                                 sendState = SmtpState.waitingEHLOReply
                                 let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
                                 debugPrint("C: \(ehlo)")
-                                if CFWriteStreamWriteFully(outputStream: outputStream, utf8String: ehlo.utf8, length: ehlo.lengthOfBytes(using: .utf8)) < 0 {
+                                if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: ehlo) < 0 {
                                     error = outputStream?.streamError
                                     encounteredError = true
 
@@ -316,6 +324,95 @@ extension JFMailSender: StreamDelegate {
                             } else {
                                 startShortWatchdog()
                             }
+                        case SmtpState.waitingEHLOReply:
+                            if tmpLine.hasPrefix("250-AUTH") {
+                                var testRange = tmpLine.nsRange(of: "PLAIN")
+
+                                if  testRange.location != NSNotFound{
+                                    serverAuthPLAIN = true;
+                                }
+
+                                testRange = tmpLine.nsRange(of:"LOGIN")
+                                if (testRange.location != NSNotFound){
+                                    serverAuthLOGIN = true;
+                                }
+
+                            }
+                            else if tmpLine.hasPrefix("250-8BITMIME") {
+                                server8bitMessages = true;
+
+                            }
+                            else if tmpLine.hasPrefix("250-STARTTLS"), !isSecure, let want = hostConfiguration.wantsSecure, want {
+                                // if we're not already using TLS, start it up
+                                sendState = SmtpState.waitingTLSReply
+                                let startTLS = "STARTTLS\r\n"
+                                debugPrint("C: %@ \(startTLS)")
+                                if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: startTLS) < 0 {
+                                    error =  outputStream?.streamError
+                                    encounteredError = true
+                                }
+                                else{
+                                    startShortWatchdog()
+                                }
+
+                            }
+                            else if tmpLine.hasPrefix("250 ") {
+                                if let req = hostConfiguration.requiresAuth, req {
+                                    // Start up auth
+                                    if serverAuthPLAIN {
+                                        sendState = SmtpState.waitingAuthSuccess
+                                        if let login = user.login, let password = user.password {
+                                            let loginString = String(format: "\000%@\000%@", arguments: [login, password])
+                                            if let argString = loginString.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)) {
+                                                let authString = String(format: "AUTH PLAIN %@\r\n", arguments: [argString])
+                                                debugPrint("C: \(authString)")
+                                                if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: authString) < 0 {
+                                                    error = outputStream?.streamError
+                                                    encounteredError = true
+                                                } else {
+                                                    startShortWatchdog()
+                                                }
+                                            }
+
+                                        }
+
+                                    }
+                                    else if serverAuthLOGIN {
+                                        sendState = SmtpState.waitingLOGINUsernameReply
+                                        let authString = "AUTH LOGIN\r\n"
+                                        debugPrint("C: \(authString)")
+                                        if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: authString) < 0 {
+                                            error = outputStream?.streamError
+                                            encounteredError = true
+                                        } else {
+                                            startShortWatchdog()
+                                        }
+                                    }
+                                    else {
+                                        error =  NSError(domain: "SKPSMTPMessageError", code: SmtpError.unsupportedLogin.rawValue, userInfo:
+                                        [NSLocalizedDescriptionKey: NSLocalizedString("Unsupported login mechanism.", comment: "server unsupported login fail error description"),
+                                         NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Your server's security setup is not supported, please contact your system administrator or use a supported email account like MobileMe.", comment: "server security fail error recovery")])
+                                        encounteredError = true
+                                    }
+                                }
+
+                            }
+
+                            else {
+                                // Start up send from
+                                sendState = SmtpState.waitingFromReply
+                                if let from = user.email {
+                                    let mailFrom = String(format: "MAIL FROM:<%@>\r\n", arguments: [from])
+                                    debugPrint("C: \(mailFrom)")
+                                    if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: mailFrom) < 0 {
+                                        error = outputStream?.streamError
+                                        encounteredError = true
+                                    } else {
+                                        startShortWatchdog()
+                                    }
+                                }
+                            }
+
                         default:
                             ()
 
