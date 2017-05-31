@@ -5,6 +5,10 @@
 
 import Foundation
 
+func CFWriteStreamWriteFullyUtf8Encoding(outputStream: CFWriteStream?, string: String) -> CFIndex {
+    return CFWriteStreamWriteFully(outputStream: outputStream, utf8String: string.utf8, length: string.lengthOfBytes(using: .utf8))
+}
+
 func CFWriteStreamWriteFully(outputStream: CFWriteStream?, utf8String: String.UTF8View, length: CFIndex) -> CFIndex {
 
     var buffer = Array(utf8String)
