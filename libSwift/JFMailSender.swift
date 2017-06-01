@@ -28,7 +28,7 @@ class JFMailSender: NSObject {
 
     private var watchdogTimer: Timer?
     private var connectTimer: Timer?
-    private var inputStream: InputStream?
+    fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
     private var relayHost: String!
     fileprivate var isSecure = false
@@ -413,17 +413,43 @@ extension JFMailSender: StreamDelegate {
                                 }
                             }
 
+                        case .waitingTLSReply:
+                            if tmpLine.hasPrefix("220 ") {
+                                // Attempt to use TLSv1
+                                var sslOptions: [String: Any] = [kCFStreamSSLLevel as String : kCFStreamSocketSecurityLevelTLSv1 as String ]
+                                if !validateSSLChain {
+                                    // Don't validate SSL certs. This is terrible, please complain loudly to your BOFH.
+                                    debugPrint("WARNING: Will not validate SSL chain!!!")
+                                    sslOptions[kCFStreamSSLValidatesCertificateChain as String] = kCFBooleanFalse as CFBoolean
+                                }
+                                debugPrint("Beginning TLSv1...")
+                                CFReadStreamSetProperty(inputStream, CFStreamPropertyKey(rawValue: kCFStreamPropertySSLSettings), sslOptions as CFTypeRef)
+                                CFWriteStreamSetProperty(outputStream, CFStreamPropertyKey(rawValue: kCFStreamPropertySSLSettings), sslOptions as CFTypeRef)
+                                // restart the connection
+                                sendState = SmtpState.waitingEHLOReply
+                                isSecure = true;
+                                let ehlo = String(format: "EHLO %@\r\n", ["localhost"])
+                                debugPrint("C: \(ehlo)")
+                                if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: ehlo) < 0 {
+                                    error = outputStream?.streamError
+                                    encounteredError = true
+                                }
+                                else {
+                                    startShortWatchdog()
+                                }
+                            }
+
                         default:
-                            ()
+                        ()
 
 
-                        }
                     }
                 }
-
             }
-        }
 
+        }
     }
+
+}
 
 }
