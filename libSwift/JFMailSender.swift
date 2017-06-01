@@ -313,7 +313,7 @@ extension JFMailSender: StreamDelegate {
                         switch state {
                         case SmtpState.connecting:
                             if tmpLine.hasPrefix("220 ") {
-                                sendState = SmtpState.waitingEHLOReply
+                                sendState = .waitingEHLOReply
                                 let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
                                 debugPrint("C: \(ehlo)")
                                 if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: ehlo) < 0 {
@@ -344,7 +344,7 @@ extension JFMailSender: StreamDelegate {
                             }
                             else if tmpLine.hasPrefix("250-STARTTLS"), !isSecure, let want = hostConfiguration.wantsSecure, want {
                                 // if we're not already using TLS, start it up
-                                sendState = SmtpState.waitingTLSReply
+                                sendState = .waitingTLSReply
                                 let startTLS = "STARTTLS\r\n"
                                 debugPrint("C: %@ \(startTLS)")
                                 if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: startTLS) < 0 {
@@ -360,7 +360,7 @@ extension JFMailSender: StreamDelegate {
                                 if let req = hostConfiguration.requiresAuth, req {
                                     // Start up auth
                                     if serverAuthPLAIN {
-                                        sendState = SmtpState.waitingAuthSuccess
+                                        sendState = .waitingAuthSuccess
                                         if let login = user.login, let password = user.password {
                                             let loginString = String(format: "\000%@\000%@", arguments: [login, password])
                                             if let argString = loginString.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)) {
@@ -378,7 +378,7 @@ extension JFMailSender: StreamDelegate {
 
                                     }
                                     else if serverAuthLOGIN {
-                                        sendState = SmtpState.waitingLOGINUsernameReply
+                                        sendState = .waitingLOGINUsernameReply
                                         let authString = "AUTH LOGIN\r\n"
                                         debugPrint("C: \(authString)")
                                         if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: authString) < 0 {
@@ -400,7 +400,7 @@ extension JFMailSender: StreamDelegate {
 
                             else {
                                 // Start up send from
-                                sendState = SmtpState.waitingFromReply
+                                sendState = .waitingFromReply
                                 if let from = user.email {
                                     let mailFrom = String(format: "MAIL FROM:<%@>\r\n", arguments: [from])
                                     debugPrint("C: \(mailFrom)")
@@ -426,7 +426,7 @@ extension JFMailSender: StreamDelegate {
                                 CFReadStreamSetProperty(inputStream, CFStreamPropertyKey(rawValue: kCFStreamPropertySSLSettings), sslOptions as CFTypeRef)
                                 CFWriteStreamSetProperty(outputStream, CFStreamPropertyKey(rawValue: kCFStreamPropertySSLSettings), sslOptions as CFTypeRef)
                                 // restart the connection
-                                sendState = SmtpState.waitingEHLOReply
+                                sendState = .waitingEHLOReply
                                 isSecure = true;
                                 let ehlo = String(format: "EHLO %@\r\n", ["localhost"])
                                 debugPrint("C: \(ehlo)")
@@ -438,7 +438,21 @@ extension JFMailSender: StreamDelegate {
                                     startShortWatchdog()
                                 }
                             }
+                        case .waitingLOGINUsernameReply:
+                            if tmpLine.hasPrefix("334 VXNlcm5hbWU6") {
+                                sendState = .waitingLOGINPasswordReply
+                                if let arg = user.login?.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)) {
+                                    let authString = String(format: "%@\r\n", arguments: [arg])
+                                    debugPrint("C: \(authString)")
+                                    if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: authString) < 0 {
+                                        error = outputStream?.streamError
+                                        encounteredError = true
+                                    } else {
+                                        startShortWatchdog()
+                                    }
 
+                                }
+                            }
                         default:
                         ()
 
