@@ -453,6 +453,42 @@ extension JFMailSender: StreamDelegate {
 
                                 }
                             }
+                        case .waitingLOGINPasswordReply:
+                            if tmpLine.hasPrefix("334 UGFzc3dvcmQ6"){
+                                sendState = .waitingAuthSuccess
+                                if let arg = user.password?.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)) {
+                                    let authString = String(format: "%@\r\n", arguments: [arg])
+                                    debugPrint("C: \(authString)")
+                                    if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: authString) < 0 {
+                                        error = outputStream?.streamError
+                                        encounteredError = true
+                                    } else {
+                                        startShortWatchdog()
+                                    }
+                                }
+                            }
+                        case .waitingAuthSuccess:
+                            if tmpLine.hasPrefix("235 ") {
+                                self.sendState = .waitingFromReply
+                                let format = server8bitMessages ? "MAIL FROM:<%@> BODY=8BITMIME\r\n" : "MAIL FROM:<%@>\r\n"
+                                if let addr = mail?.address {
+                                    let mailFrom = String(format: format, arguments: [addr])
+                                    debugPrint("C: \(mailFrom)")
+                                    if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: mailFrom) < 0 {
+                                        error = outputStream?.streamError
+                                        encounteredError = true
+                                    } else {
+                                        startShortWatchdog()
+                                    }
+                                }
+                            }
+                            else if tmpLine.hasPrefix("535 "){
+                                error = NSError(domain: "SKPSMTPMessageError", code: SmtpError.unsupportedLogin.rawValue, userInfo:
+                                [NSLocalizedDescriptionKey: NSLocalizedString("Invalid username or password.", comment: "server login fail error description"),
+                                 NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Go to Email Preferences in the application and re-enter your username and password.", comment: "server login error recovery")])
+                                encounteredError = true
+                            }
+
                         default:
                         ()
 
