@@ -167,7 +167,7 @@ class JFMailSender: NSObject {
         assert((relayHost != nil), "send requires relayHost")
         if let mailVal = mail {
             assert((mailVal.subject != nil), "send requires mail subject")
-            assert((mailVal.address != nil), "send requires mail address")
+            assert((mailVal.toAddress != nil), "send requires mail address")
             assert((mailVal.contentType != nil), "send requires mail contentType")
             assert((mailVal.contentTransferEncoding != nil), "send requires mail contentTransferEncoding")
         }
@@ -471,7 +471,7 @@ extension JFMailSender: StreamDelegate {
                             if tmpLine.hasPrefix("235 ") {
                                 self.sendState = .waitingFromReply
                                 let format = server8bitMessages ? "MAIL FROM:<%@> BODY=8BITMIME\r\n" : "MAIL FROM:<%@>\r\n"
-                                if let addr = mail?.address {
+                                if let addr = mail?.toAddress {
                                     let mailFrom = String(format: format, arguments: [addr])
                                     debugPrint("C: \(mailFrom)")
                                     if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: mailFrom) < 0 {
@@ -488,18 +488,64 @@ extension JFMailSender: StreamDelegate {
                                  NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Go to Email Preferences in the application and re-enter your username and password.", comment: "server login error recovery")])
                                 encounteredError = true
                             }
+                        case .waitingFromReply:
+                            // toc 2009-02-18 begin changes per mdesaro issue 18 - http://code.google.com/p/skpsmtpmessage/issues/detail?id=18
+                            // toc 2009-02-18 begin changes to support cc & bcc
+                            if (tmpLine.hasPrefix("250 ")){
+                                self.sendState = .waitingToReply
+                                if var multipleRcptTo = format(addresses: mail?.toAddress){
+                                    if let form = format(addresses: mail?.ccAddress) {
+                                        multipleRcptTo.append(form)
+                                    }
+                                    debugPrint("C: \(multipleRcptTo)")
+                                    if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: multipleRcptTo) < 0 {
+                                        error = outputStream?.streamError
+                                        encounteredError = true
+                                    } else {
+                                        startShortWatchdog()
+                                    }
 
+                                }
+                            }
                         default:
-                        ()
+                            ()
 
-
+                        }
                     }
                 }
             }
-
         }
     }
 
-}
+    private func format(addresses: String?) -> String? {
+        let splitSet = CharacterSet(charactersIn: ";,")
+        var multipleRcptTo: String?
+        if let add = addresses, !add.isEmpty {
+            multipleRcptTo = ""
+            if add.nsRange(of: ";").location != NSNotFound || add.nsRange(of: ",").location != NSNotFound {
+                multipleRcptTo = add.components(separatedBy: splitSet).map {
+                    (value: String) -> String? in
+                    return format(anAddress:value)}.removeNils().joined()
+            } else {
+                if let form = format(anAddress:add) {
+                    multipleRcptTo?.append(form)
+                }
+            }
+        }
+        return multipleRcptTo
+    }
+
+    private func format(anAddress: String?) -> String? {
+        var formattedAddress: String?
+        let whitespaceCharSet = CharacterSet.whitespaces
+        if let add = anAddress {
+            if add.nsRange(of: "<").location == NSNotFound || add.nsRange(of: ">").location == NSNotFound {
+                formattedAddress = String(format: "RCPT TO:<%@>\r\n", arguments: [add.trimmingCharacters(in: whitespaceCharSet)])
+            } else {
+                formattedAddress = String(format: "RCPT TO:%@\r\n", arguments: [add.trimmingCharacters(in: whitespaceCharSet)])
+            }
+        }
+        return formattedAddress
+    }
 
 }
