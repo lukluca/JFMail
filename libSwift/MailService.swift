@@ -44,14 +44,15 @@ enum Host  {
 //MARK: structs
 
 struct Mail: CustomDebugStringConvertible {
-    var address: String?
+    var toAddress: String?
+    var ccAddress: String?
     var subject: String?
     var body: String?
     var contentType: String?
     var contentTransferEncoding: String?
 
     var debugDescription: String {
-        return "address: \(address ?? "nil"), subject: \(subject ?? "nil"), body: \(body ?? "nil"), parts -> contentType: \(contentType ?? "nil"), contentTransferEncoding: \(contentTransferEncoding ?? "nil" )"
+        return "toAddress: \(toAddress ?? "nil"), ccAddress: \(ccAddress ?? "nil"), subject: \(subject ?? "nil"), body: \(body ?? "nil"), parts -> contentType: \(contentType ?? "nil"), contentTransferEncoding: \(contentTransferEncoding ?? "nil" )"
     }
 }
 
