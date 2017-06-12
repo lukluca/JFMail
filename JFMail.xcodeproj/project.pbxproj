@@ -11,7 +11,6 @@
 		47E4710D36123482180A255F /* CFHost+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4762AFD7E0D415921C74B /* CFHost+Extensions.swift */; };
 		47E4746DC72BC8FAFC615A92 /* HSK_CFUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4715D8E225DE81332BB1C /* HSK_CFUtilities.swift */; };
 		47E47545A5740F8D3CB0B41A /* Optional+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4787276955D6AD0EBEAFB /* Optional+Extensions.swift */; };
-		47E47605536F9898A61CB52F /* Scanner+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E472B25170A4B9151456AB /* Scanner+Extensions.swift */; };
 		47E476586F31F2972D932942 /* MailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E4783D55E60A183D771B89 /* MailService.swift */; };
 		47E47940A8DD45C249B654E8 /* JFMailDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E47203C88552606A079233 /* JFMailDefinitions.swift */; };
 		47E47BBE18FC10F8319A6AEC /* CFStream+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E475DCC510A7A216E33D44 /* CFStream+Extensions.swift */; };
@@ -34,7 +33,6 @@
 		43DD0AA51EDCA2C100C8E68C /* String+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		47E4715D8E225DE81332BB1C /* HSK_CFUtilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HSK_CFUtilities.swift; sourceTree = "<group>"; };
 		47E47203C88552606A079233 /* JFMailDefinitions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JFMailDefinitions.swift; sourceTree = "<group>"; };
-		47E472B25170A4B9151456AB /* Scanner+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Scanner+Extensions.swift"; sourceTree = "<group>"; };
 		47E475DCC510A7A216E33D44 /* CFStream+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CFStream+Extensions.swift"; sourceTree = "<group>"; };
 		47E4762AFD7E0D415921C74B /* CFHost+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CFHost+Extensions.swift"; sourceTree = "<group>"; };
 		47E4783D55E60A183D771B89 /* MailService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MailService.swift; sourceTree = "<group>"; };
@@ -92,7 +90,6 @@
 				47E4762AFD7E0D415921C74B /* CFHost+Extensions.swift */,
 				47E475DCC510A7A216E33D44 /* CFStream+Extensions.swift */,
 				43DD0AA51EDCA2C100C8E68C /* String+Extensions.swift */,
-				47E472B25170A4B9151456AB /* Scanner+Extensions.swift */,
 				47E4787276955D6AD0EBEAFB /* Optional+Extensions.swift */,
 			);
 			path = extensions;
@@ -241,7 +238,6 @@
 				47E476586F31F2972D932942 /* MailService.swift in Sources */,
 				47E4710D36123482180A255F /* CFHost+Extensions.swift in Sources */,
 				47E47BBE18FC10F8319A6AEC /* CFStream+Extensions.swift in Sources */,
-				47E47605536F9898A61CB52F /* Scanner+Extensions.swift in Sources */,
 				47E47545A5740F8D3CB0B41A /* Optional+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
