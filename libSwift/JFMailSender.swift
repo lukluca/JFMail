@@ -40,7 +40,7 @@ class JFMailSender: NSObject {
     // Content support flags
     fileprivate var server8bitMessages = false
 
-    fileprivate var parts: Array<Dictionary<String,String>>?
+    var parts: Array<Dictionary<String,String>>?
 
 
 
@@ -81,7 +81,9 @@ class JFMailSender: NSObject {
 
             // Try the next port - if we don't have another one to try, this will fail
             sendState = .idle
-            sendMail()
+            if let ma = mail {
+                sendMail(mail: ma)
+            }
         }
         connectTimer = nil
     }
@@ -155,10 +157,10 @@ class JFMailSender: NSObject {
         return true
     }
 
-    private func sendMail() {
-
+    func sendMail(mail: Mail) {
+        self.mail = mail
         assert((hostConfiguration.requiresAuth != nil), "send requires hostConfiguration requiresAuth set")
-        assert((mail != nil), "send requires mail set")
+        assert((self.mail != nil), "send requires mail set")
         assert(sendState == .idle, "Message has already been sent!")
         assert((user.email != nil), "send requires mail toEmail")
         if let reqAuth = hostConfiguration.requiresAuth, reqAuth {
@@ -166,7 +168,7 @@ class JFMailSender: NSObject {
             assert((user.password != nil), "auth requires pass")
         }
         assert((relayHost != nil), "send requires relayHost")
-        if let mailVal = mail {
+        if let mailVal = self.mail {
             assert((mailVal.subject != nil), "send requires mail subject")
             assert((mailVal.toAddress != nil), "send requires mail address")
             assert((mailVal.contentType != nil), "send requires mail contentType")
