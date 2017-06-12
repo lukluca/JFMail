@@ -19,4 +19,9 @@ extension String {
         return nsString.range(of: of)
     }
 
+    public func substring(from index: Int) -> String {
+        let index = self.index(self.startIndex, offsetBy: index)
+        return self.substring(from: index)
+    }
+
 }
