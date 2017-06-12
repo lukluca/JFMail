@@ -7,7 +7,7 @@ import Foundation
 
 protocol JFMailSenderDelegate {
     func mailSent(sender: JFMailSender)
-    func mailFailed(sender: JFMailSender, error: NSError)
+    func mailFailed(sender: JFMailSender, error: Error?)
 }
 
 class JFMailSender: NSObject {
@@ -30,7 +30,7 @@ class JFMailSender: NSObject {
     private var connectTimer: Timer?
     fileprivate var inputStream: InputStream?
     fileprivate var outputStream: OutputStream?
-    private var relayHost: String!
+    fileprivate var relayHost: String!
     fileprivate var isSecure = false
 
     // Auth support flags
@@ -39,6 +39,8 @@ class JFMailSender: NSObject {
 
     // Content support flags
     fileprivate var server8bitMessages = false
+
+    fileprivate var parts: Array<Dictionary<String,String>>?
 
 
 
@@ -62,7 +64,7 @@ class JFMailSender: NSObject {
         watchdogTimer = Timer.scheduledTimer(timeInterval: Timeout.SHORT_LIVENESS.rawValue, target: self, selector: #selector(connectionWatchdog), userInfo: nil, repeats: false)
     }
 
-    private func startLongWatchdog() {
+    fileprivate func startLongWatchdog() {
         debugPrint("*** starting long watchdog ***")
         watchdogTimer = Timer.scheduledTimer(timeInterval: Timeout.LONG_LIVENESS.rawValue, target: self, selector: #selector(connectionWatchdog), userInfo: nil, repeats: false)
     }
@@ -82,7 +84,6 @@ class JFMailSender: NSObject {
             sendMail()
         }
         connectTimer = nil
-
     }
 
     //MARK: Watchdog Callback
@@ -103,7 +104,7 @@ class JFMailSender: NSObject {
         }
     }
 
-    private func cleanUpStreams() {
+    fileprivate func cleanUpStreams() {
         inputStream?.close()
         inputStream?.remove(from: .current, forMode: .defaultRunLoopMode)
         inputStream = nil;
@@ -298,21 +299,22 @@ extension JFMailSender: StreamDelegate {
 
         var error: Error?
         var encounteredError = false
-        let messageSent = false
+        var tmpLine: NSString?
+        var messageSent = false
 
         if let str = inputString {
             let scanner = Scanner(string: str)
 
             while (!scanner.isAtEnd){
 
-                if  let tmpLine = scanner.scanUpToCharacters(from: .newlines){
+                if scanner.scanUpToCharacters(from: .newlines, into: &tmpLine), let tmp = tmpLine {
                     stopWatchdog()
-                    debugPrint("S: \(tmpLine)");
+                    debugPrint("S: \(tmp)");
 
                     if let state = sendState {
                         switch state {
                         case SmtpState.connecting:
-                            if tmpLine.hasPrefix("220 ") {
+                            if tmp.hasPrefix("220 ") {
                                 sendState = .waitingEHLOReply
                                 let ehlo = String(format: "EHLO %@\r\n", arguments: ["localhost"])
                                 debugPrint("C: \(ehlo)")
@@ -325,24 +327,24 @@ extension JFMailSender: StreamDelegate {
                                 startShortWatchdog()
                             }
                         case SmtpState.waitingEHLOReply:
-                            if tmpLine.hasPrefix("250-AUTH") {
-                                var testRange = tmpLine.nsRange(of: "PLAIN")
+                            if tmp.hasPrefix("250-AUTH") {
+                                var testRange = (tmp as String).nsRange(of: "PLAIN")
 
                                 if  testRange.location != NSNotFound{
                                     serverAuthPLAIN = true;
                                 }
 
-                                testRange = tmpLine.nsRange(of:"LOGIN")
+                                testRange = (tmp as String).nsRange(of:"LOGIN")
                                 if (testRange.location != NSNotFound){
                                     serverAuthLOGIN = true;
                                 }
 
                             }
-                            else if tmpLine.hasPrefix("250-8BITMIME") {
+                            else if tmp.hasPrefix("250-8BITMIME") {
                                 server8bitMessages = true;
 
                             }
-                            else if tmpLine.hasPrefix("250-STARTTLS"), !isSecure, let want = hostConfiguration.wantsSecure, want {
+                            else if tmp.hasPrefix("250-STARTTLS"), !isSecure, let want = hostConfiguration.wantsSecure, want {
                                 // if we're not already using TLS, start it up
                                 sendState = .waitingTLSReply
                                 let startTLS = "STARTTLS\r\n"
@@ -356,7 +358,7 @@ extension JFMailSender: StreamDelegate {
                                 }
 
                             }
-                            else if tmpLine.hasPrefix("250 ") {
+                            else if tmp.hasPrefix("250 ") {
                                 if let req = hostConfiguration.requiresAuth, req {
                                     // Start up auth
                                     if serverAuthPLAIN {
@@ -414,7 +416,7 @@ extension JFMailSender: StreamDelegate {
                             }
 
                         case .waitingTLSReply:
-                            if tmpLine.hasPrefix("220 ") {
+                            if tmp.hasPrefix("220 ") {
                                 // Attempt to use TLSv1
                                 var sslOptions: [String: Any] = [kCFStreamSSLLevel as String : kCFStreamSocketSecurityLevelTLSv1 as String ]
                                 if !validateSSLChain {
@@ -439,7 +441,7 @@ extension JFMailSender: StreamDelegate {
                                 }
                             }
                         case .waitingLOGINUsernameReply:
-                            if tmpLine.hasPrefix("334 VXNlcm5hbWU6") {
+                            if tmp.hasPrefix("334 VXNlcm5hbWU6") {
                                 sendState = .waitingLOGINPasswordReply
                                 if let arg = user.login?.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)) {
                                     let authString = String(format: "%@\r\n", arguments: [arg])
@@ -454,7 +456,7 @@ extension JFMailSender: StreamDelegate {
                                 }
                             }
                         case .waitingLOGINPasswordReply:
-                            if tmpLine.hasPrefix("334 UGFzc3dvcmQ6"){
+                            if tmp.hasPrefix("334 UGFzc3dvcmQ6"){
                                 sendState = .waitingAuthSuccess
                                 if let arg = user.password?.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)) {
                                     let authString = String(format: "%@\r\n", arguments: [arg])
@@ -468,7 +470,7 @@ extension JFMailSender: StreamDelegate {
                                 }
                             }
                         case .waitingAuthSuccess:
-                            if tmpLine.hasPrefix("235 ") {
+                            if tmp.hasPrefix("235 ") {
                                 self.sendState = .waitingFromReply
                                 let format = server8bitMessages ? "MAIL FROM:<%@> BODY=8BITMIME\r\n" : "MAIL FROM:<%@>\r\n"
                                 if let addr = mail?.toAddress {
@@ -482,7 +484,7 @@ extension JFMailSender: StreamDelegate {
                                     }
                                 }
                             }
-                            else if tmpLine.hasPrefix("535 "){
+                            else if tmp.hasPrefix("535 "){
                                 error = NSError(domain: "SKPSMTPMessageError", code: SmtpError.unsupportedLogin.rawValue, userInfo:
                                 [NSLocalizedDescriptionKey: NSLocalizedString("Invalid username or password.", comment: "server login fail error description"),
                                  NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Go to Email Preferences in the application and re-enter your username and password.", comment: "server login error recovery")])
@@ -491,7 +493,7 @@ extension JFMailSender: StreamDelegate {
                         case .waitingFromReply:
                             // toc 2009-02-18 begin changes per mdesaro issue 18 - http://code.google.com/p/skpsmtpmessage/issues/detail?id=18
                             // toc 2009-02-18 begin changes to support cc & bcc
-                            if (tmpLine.hasPrefix("250 ")){
+                            if tmp.hasPrefix("250 "){
                                 self.sendState = .waitingToReply
                                 if var multipleRcptTo = format(addresses: mail?.toAddress){
                                     if let form = format(addresses: mail?.ccAddress) {
@@ -507,11 +509,81 @@ extension JFMailSender: StreamDelegate {
 
                                 }
                             }
+                        case .waitingToReply:
+                            if tmp.hasPrefix("250 "){
+                                self.sendState = .waitingForEnterMail
+                                let dataString = "DATA\r\n"
+                                debugPrint("C: \(dataString)")
+                                if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: dataString) < 0 {
+                                    error = outputStream?.streamError
+                                    encounteredError = true
+                                } else {
+                                    startShortWatchdog()
+                                }
+                            }
+                            else if tmp.hasPrefix("530 "){
+                                error = NSError(domain:"SKPSMTPMessageError",
+                                        code:SmtpError.noRelay.rawValue,
+                                        userInfo:[NSLocalizedDescriptionKey: NSLocalizedString("Relay rejected.", comment: "server relay fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Your server probably requires a username and password.", comment: "server relay fail error recovery")])
+                                encounteredError = true
+                            }
+                            else if tmp.hasPrefix("550 "){
+                                error = NSError(domain:"SKPSMTPMessageError",
+                                        code:SmtpError.invalidMessage.rawValue,
+                                        userInfo:[NSLocalizedDescriptionKey: NSLocalizedString("To address rejected.", comment: "server to address fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Please re-enter the To: address.", comment: "server to address fail error recovery")])
+                                encounteredError = true
+                            }
+                        case .waitingForEnterMail:
+                            if tmp.hasPrefix("354 "){
+                                sendState = .waitingSendSuccess
+
+                                if sendParts() {
+                                    error =  outputStream?.streamError
+                                    encounteredError = true
+                                }
+                            }
+
+                        case .waitingSendSuccess:
+                            if tmp.hasPrefix("250 "){
+                                self.sendState = .waitingQuitReply
+                                let quitString = "QUIT\r\n"
+                                debugPrint("C: \(quitString)")
+                                if CFWriteStreamWriteFullyUtf8Encoding(outputStream: self.outputStream, string: quitString) < 0 {
+                                    error = outputStream?.streamError
+                                    encounteredError = true
+                                }  else{
+                                    startShortWatchdog()
+                                }
+                            }
+                            else if tmp.hasPrefix("550 ") {
+                                error = NSError(domain: "SKPSMTPMessageError",
+                                        code: SmtpError.invalidMessage.rawValue,
+                                        userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("Failed to logout.", comment: "server logout fail error description"), NSLocalizedRecoverySuggestionErrorKey: NSLocalizedString("Try sending your message again later.", comment: "server generic error recovery")])
+                                encounteredError = true;
+                            }
+                        case .waitingQuitReply:
+                            if tmp.hasPrefix("221 ") {
+                                sendState = .messageSent
+                                messageSent = true
+                            }
                         default:
                             ()
-
                         }
                     }
+
+                } else {
+                    break
+                }
+
+                inputString = inputString?.substring(from: scanner.scanLocation)
+
+                if (messageSent) {
+                    cleanUpStreams()
+                    delegate?.mailSent(sender: self)
+                }
+                else if (encounteredError) {
+                    cleanUpStreams()
+                    delegate?.mailFailed(sender: self, error: error)
                 }
             }
         }
@@ -546,6 +618,87 @@ extension JFMailSender: StreamDelegate {
             }
         }
         return formattedAddress
+    }
+
+    private func sendParts() -> Bool {
+        let separatorString = "--JFMailSender--Separator--Delimiter\r\n"
+        let uuidRef = CFUUIDCreate(kCFAllocatorDefault)
+        let uuid = CFUUIDCreateString(kCFAllocatorDefault, uuidRef) as String
+        let now = Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
+        var message = String(format: "Date: %@\r\n", arguments: [dateFormatter.string(from: now)])
+        message = message.appendingFormat("Message-id: <%@@%@>\r\n", [uuid.replacingOccurrences(of: "-", with: ""), self.relayHost])
+        if let name = user.name, let email = user.email {
+            message = message.appendingFormat("From:\"%@\"%@\r\n", JFMailSender.chineseCharacterEncodingFileName(fileName: name), email)
+        } else if let email = user.email {
+            message  = message.appendingFormat("From:%@\r\n", [email])
+        }
+
+        if let toAddress = mail?.toAddress, !toAddress.isEmpty {
+            message = message.appendingFormat("To:%@\r\n", [toAddress])
+        }
+
+        if let ccAddress = mail?.ccAddress, !ccAddress.isEmpty {
+            message = message.appendingFormat("Cc:%@\r\n", [ccAddress])
+        }
+
+        message.append("Content-Type: multipart/mixed; boundary=JFMailSender--Separator--Delimiter\r\n")
+        message.append("Mime-Version: 1.0 (JFMailSender 1.0)\r\n")
+        message.append("Subject:%@\r\n\r\n")
+        message.append(separatorString)
+        var intPointee: Int32?
+        if let messageData = message.data(using: .utf8, allowLossyConversion: true) {
+            messageData.withUnsafeBytes { (pointer: UnsafePointer<Int32>) -> Void in
+                debugPrint("C: %@ \(pointer)")
+                intPointee = pointer.pointee
+            }
+        }
+
+        if let pointee = intPointee, CFWriteStreamWriteFullyUtf8Encoding(outputStream: self.outputStream, string: String(pointee)) < 0 {
+            return false
+        }
+
+        parts = parts?.map ({ (part: Dictionary<String, String>) -> Dictionary<String, String> in
+            if let disposition = part[SmtpKey.partContentDisposition], !disposition.isEmpty {
+                message = message.appendingFormat("Content-Disposition: %@\r\n", disposition)
+            }
+            if let type = part[SmtpKey.partContentType], !type.isEmpty {
+                message = message.appendingFormat("Content-Type: %@\r\n", type)
+            }
+            if let encoding = part[SmtpKey.partContentTransferEncoding], !encoding.isEmpty {
+                message = message.appendingFormat("Content-Transfer-Encoding: %@\r\n\r\n", encoding)
+            }
+            if let partMessage = part[SmtpKey.partMessage], !partMessage.isEmpty {
+                message = message.appendingFormat(partMessage);
+            }
+
+            message = message.appendingFormat("\r\n")
+            message = message.appendingFormat(separatorString)
+
+            return part
+        })
+
+        message.append("\r\n.\r\n")
+        debugPrint("C: %@ \(message)")
+        if CFWriteStreamWriteFullyUtf8Encoding(outputStream: outputStream, string: message) < 0 {
+            return false
+        }
+
+        startLongWatchdog()
+        return true
+    }
+
+    static func part(type: PartType, message: String, contentType: String, contentTransferEncoding: String, fileName: String) -> Dictionary<String, String>{
+        if(type == PartType.plainPart){
+            return [SmtpKey.partContentType: contentType, SmtpKey.partMessage: message, SmtpKey.partContentTransferEncoding: contentTransferEncoding]
+        } else {
+            return [SmtpKey.partContentDisposition: String(format: "attachment;\r\n\tfilename=\"%@\"", arguments: [fileName]), SmtpKey.partMessage: message, SmtpKey.partContentTransferEncoding: contentTransferEncoding]
+        }
+    }
+
+    static func chineseCharacterEncodingFileName(fileName: String) -> String {
+        return String(format: "=?UTF-8?B?%@?=", arguments: [(fileName.data(using: .utf8)?.base64EncodedString(options: Data.Base64EncodingOptions(rawValue: 0)))!])
     }
 
 }
