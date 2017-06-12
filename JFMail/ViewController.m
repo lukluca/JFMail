@@ -33,15 +33,15 @@
     mailSender.delegate = self;
     
     
-    NSDictionary *plainPart = [NSDictionary dictionaryWithObjectsAndKeys:@"text/plain; charset=UTF-8",smtpPartContentTypeKey,
-                               @"ceshiceshiceshi 测试测试测试.<br><h1>天气不错</h1>",smtpPartMessageKey,@"8bit",smtpPartContentTransferEncodingKey,nil];
+    NSDictionary *plainPart = @{smtpPartContentTypeKey: @"text/plain; charset=UTF-8",
+            smtpPartMessageKey: @"ceshiceshiceshi 测试测试测试.<br><h1>天气不错</h1>", smtpPartContentTransferEncodingKey: @"8bit"};
 //    NSDictionary *plainPart2 = [NSDictionary dictionaryWithObjectsAndKeys:@"text/html; charset=UTF-8",smtpPartContentTypeKey,
 //                               @"ceshiceshiceshi 测试测试测试.<br><h1>天气不错</h1>",smtpPartMessageKey,@"8bit",smtpPartContentTransferEncodingKey,nil];
     NSString *vcfPath = [[NSBundle mainBundle] pathForResource:@"test" ofType:@"vcf"];
     NSData *vcfData = [NSData dataWithContentsOfFile:vcfPath];
     
-    NSDictionary *vcfPart = [NSDictionary dictionaryWithObjectsAndKeys:@"text/directory;\r\n\tx-unix-mode=0644;\r\n\tname=\"test.vcf\"",smtpPartContentTypeKey,
-                             @"attachment;\r\n\tfilename=\"test.vcf\"",smtpPartContentDispositionKey,[vcfData base64EncodedStringWithOptions:0],smtpPartMessageKey,@"base64",smtpPartContentTransferEncodingKey,nil];
+    NSDictionary *vcfPart = @{smtpPartContentTypeKey: @"text/directory;\r\n\tx-unix-mode=0644;\r\n\tname=\"test.vcf\"",
+            smtpPartContentDispositionKey: @"attachment;\r\n\tfilename=\"test.vcf\"", smtpPartMessageKey: [vcfData base64EncodedStringWithOptions:0], smtpPartContentTransferEncodingKey: @"base64"};
     
     NSString *fileName = [JFMailSender chineseCharacterEncodingFileNameWithFileName:@"测试.vcf"];
     //the other ways to create Part Dictionary.
@@ -51,7 +51,7 @@
                                 ContentTransferEncoding:@"base64"
                                                FileName:fileName];
     
-    mailSender.parts = [NSArray arrayWithObjects:plainPart,vcfPart,vcfPart2,nil];
+    mailSender.parts = @[plainPart, vcfPart, vcfPart2];
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 //    dispatch_async(dispatch_get_main_queue(), ^{
         [mailSender sendMail];
