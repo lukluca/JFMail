@@ -60,10 +60,10 @@ struct MailHostConfiguration: CustomDebugStringConvertible {
     var relayHost: String?
     var requiresAuth: Bool?
     var wantsSecure: Bool?
-    var relayPort: Int = 0
+    var relayPort: Int?
 
     var debugDescription: String {
-        return "relayHost: \(relayHost ?? "nil"), requiresAuth: \(requiresAuth ?? false), wantsSecure: \(wantsSecure ?? false), relayPort: \(relayPort)"
+        return "relayHost: \(relayHost ?? "nil"), requiresAuth: \(requiresAuth ?? false), wantsSecure: \(wantsSecure ?? false), relayPort: \(relayPort ?? 0)"
     }
 
 }
