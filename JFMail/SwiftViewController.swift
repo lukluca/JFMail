@@ -51,8 +51,15 @@ import UIKit
     }
 
     func sendButtonAction(sender: UIButton!) {
-        let mail = Mail()
+        var mail = Mail()
+        mail.subject = "Subject"
+        mail.toAddress = "email@mail.it"
+        mail.contentType = "text/plain; charset=UTF-8"
+        mail.contentTransferEncoding = "8bit"
+        
         mailSender?.sendMail(mail: mail)
+        
+        sender.isEnabled = false
     }
 }
 
