@@ -10,7 +10,7 @@ class CFStream {
 
 extension CFStream {
 
-    static func CreatePair(theHost: CFHost, port: Int, readStream: inout CFReadStream?, writeStream: inout CFWriteStream?){
+    static func CreatePair(theHost: CFHost, port: Int, readStream: inout InputStream?, writeStream: inout OutputStream?){
 
         var unReadStream: Unmanaged<CFReadStream>?
         if let read = readStream {
@@ -21,8 +21,12 @@ extension CFStream {
         if let write = writeStream {
             unWriteStream = Unmanaged.passRetained(write)
         }
-
+        
         CFStreamCreatePairWithSocketToCFHost(nil, theHost, Int32(port), &unReadStream, &unWriteStream)
+        
+        readStream = unReadStream?.takeRetainedValue()
+        
+        writeStream = unWriteStream?.takeRetainedValue()
 
     }
 
